@@ -9,17 +9,22 @@
             InitializeComponent();
         }
 
-        private void OnCounterClicked(object sender, EventArgs e)
+        private void OnButtonReleased(object sender, EventArgs e)
         {
-            count++;
-
-            if (count == 1)
-                CounterBtn.Text = $"Clicked {count} time";
-            else
-                CounterBtn.Text = $"Clicked {count} times";
-
-            SemanticScreenReader.Announce(CounterBtn.Text);
+            (sender as Button)!.BackgroundColor = Color.Parse("Blue");
         }
+
+        private void OnButtonFocused(object sender, EventArgs e)
+        {
+            (sender as Button)!.BackgroundColor = Color.Parse("Orange");
+        }
+
+        //настройка сервера
+        private void OnSettingsClicked(object sender, EventArgs e)
+        {
+
+        }
+
     }
 
 }
