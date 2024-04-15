@@ -8,8 +8,7 @@
     Title="KSiS2">
 
     <ShellContent
-        Title="Chat Server"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+       ContentTemplate="{DataTemplate local:MainPage}"
+        Route="MainPage"/>
 
 </Shell>
