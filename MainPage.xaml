@@ -1,39 +1,35 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="KSiS2.MainPage">
-
-    <ScrollView>
-        <VerticalStackLayout
+             x:Class="KSiS2.MainPage"
+              >
+             
+    <VerticalStackLayout
             Padding="30,0"
             Spacing="25">
-            <HorizontalStackLayout>
-                <Button Text="Настройка сервера" Clicked="OnSettingsClicked" Pressed="OnButtonFocused" Released="OnButtonReleased"/>
-                <VerticalStackLayout>
-                    <Label x:Name="IPLabel" Text=""/>
-                </VerticalStackLayout>
-            </HorizontalStackLayout>
-            
-            
-            <CollectionView ItemsSource="{Binding Messages}">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Frame Padding="10" Margin="10"
-                           BackgroundColor="{Binding IsMyMessage, Converter={StaticResource MessageBackgroundColorConverter}}">
-                            <StackLayout>
-                                <Label Text="аааааа" FontSize="12" TextColor="Gray" />
-                                <Label Text="влвытотавштов" FontSize="16" />
-                                <Label Text="12Ж32Ж23" FontSize="12" TextColor="Gray" />
-                            </StackLayout>
-                        </Frame>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
+        <Label Padding="30" Text="Сервер чата" FontSize="Header" FontAttributes="Bold" />
+        <HorizontalStackLayout
+            Margin="30"
+            Spacing="30"><ActivityIndicator />
+            <Entry x:Name="ipEntry" Placeholder="Введите IP сервера" FontSize="12" MinimumWidthRequest="30" />
+            <Entry x:Name="portEntry" Placeholder="Введите порт сервера" FontSize="12" Keyboard="Numeric" MinimumWidthRequest="30" />
+            <Button x:Name="startBtn" Text="Запустить" Clicked="OnStartClicked" Pressed="OnButtonFocused" Released="OnButtonReleased" />
+        </HorizontalStackLayout>
+        <Border BackgroundColor="#e1e1e1" 
+                StrokeThickness="4" StrokeShape="RoundRectangle 10,10,10,10">
+            <ScrollView MaximumHeightRequest="400"
+                        MinimumHeightRequest="400"
+                        MinimumWidthRequest="600"
+                        >
+            <VerticalStackLayout x:Name="LogCont"/>
 
-            <!-- Поле ввода сообщения -->
-            <Entry Placeholder="Введите сообщение" Text="{Binding NewMessage}" />
-            <Button Text="Отправить" Command="{Binding SendMessageCommand}" />
-        </VerticalStackLayout>
-    </ScrollView>
+            </ScrollView>
+        </Border>
+
+        <!-- Поле ввода сообщения -->
+        <!--<Entry Placeholder="Введите сообщение" Text="{Binding NewMessage}" />-->
+        <!--<Button Text="Отправить" Command="{Binding SendMessageCommand}" Pressed="OnButtonFocused" Released="OnButtonReleased"/>-->
+    </VerticalStackLayout>
+
 
 </ContentPage>
