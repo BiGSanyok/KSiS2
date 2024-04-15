@@ -151,6 +151,7 @@ namespace KSiS2
                     }
                     while (bytesRead > 0);
                     Messages.Add(new Message(data.ToArray()));
+                    data.Clear();
                     clientSocket.Send(new Message(new IPEndPoint(0, 0), "").GetSerializedBytes());
                 }
                 catch (Exception ex) 
