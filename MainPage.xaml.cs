@@ -24,6 +24,8 @@ namespace KSiS2
 
         }
 
+        private object locker = new();
+
         private void OnButtonReleased(object sender, EventArgs e)
         {
             (sender as Button)!.BackgroundColor = Color.Parse("Blue");
@@ -40,10 +42,13 @@ namespace KSiS2
             {
                 Text = message,
                 FontSize = 12,
-                 
+
             };
-            // Добавляем Label в AbsoluteLayout
-            LogCont.Children.Add(label);
+            lock (locker)
+            {
+                // Добавляем Label в AbsoluteLayout
+                LogCont.Children.Add(label);
+            }
         }
 
         
@@ -135,7 +140,7 @@ namespace KSiS2
         }
         private void ReceiveDataThread(Socket clientSocket)
         {
-            while (true)
+            while (true && clientSocket.Connected)
             {
                 int bytesRead = 0;
                 byte[] buffer = new byte[2048];
@@ -150,7 +155,8 @@ namespace KSiS2
                             data.Add(b);
                     }
                     while (bytesRead > 0);
-                    Messages.Add(new Message(data.ToArray()));
+                    Message message = new Message(data.ToArray());
+                    ProcessMessage(message);
                     data.Clear();
                     clientSocket.Send(new Message(new IPEndPoint(0, 0), "").GetSerializedBytes());
                 }
@@ -161,9 +167,25 @@ namespace KSiS2
             }
         }
 
-        private void ProcessMessage(Message message)
+        private Message ProcessMessage(Message message)
         {
-
+            Message answer = new Message("Ошибка обработки ");
+            switch (message.MessageType)
+            {
+                case MessageType.Init:
+                    Users.Add(message.GetIPEndPoint(), message.GetText());
+                    AddToLog($"К серверу подключился пользователь: {message.GetText()}");
+                    break;
+                case MessageType.Text: 
+                    break;
+                case MessageType.Photo: 
+                    break;
+                case MessageType.File:
+                    break;
+                case MessageType.Command: 
+                    break;
+            }
+            return answer;
         }
 
     }

@@ -6,7 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using System.Net;
-using GoogleGson;
 
 namespace KSiS2
 {
@@ -20,7 +19,7 @@ namespace KSiS2
     }
     public class Message
     {
-        private IPEndPoint IPEndPoint { get; set; }
+        private IPEndPoint? IPEndPoint { get; set; }
         private byte[] Data { get; set; }
         public MessageType MessageType { get; set; }
 
@@ -44,13 +43,15 @@ namespace KSiS2
             Data = data;
             IPEndPoint = iPEndPoint;
         }
-        public Message(IPEndPoint iPEndPoint, string message)
-        {
-            IPEndPoint = iPEndPoint;
-            Data = Encoding.UTF8.GetBytes(message);
-        }
+
+        public Message(string message) => Data = Encoding.UTF8.GetBytes(message);
+        public Message(IPEndPoint iPEndPoint, string message) : this(message) => IPEndPoint = iPEndPoint;
+
+        public void SetText(string text) => Data = Encoding.UTF8.GetBytes(text);
+        public string GetText() => Encoding.UTF8.GetString(Data);
 
         public void SetIPEndPoint(IPEndPoint iPEndPoint) => IPEndPoint = iPEndPoint;
+        public IPEndPoint GetIPEndPoint() => IPEndPoint;
 
         public byte[] GetSerializedBytes() => Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this));
         public void SetMessageBytes(byte[] data) => Data = data;
