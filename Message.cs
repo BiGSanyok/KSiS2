@@ -1,5 +1,4 @@
-﻿using Obvs.Configuration;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -51,7 +50,7 @@ namespace KSiS2
         public string GetText() => Encoding.UTF8.GetString(Data);
 
         public void SetIPEndPoint(IPEndPoint iPEndPoint) => IPEndPoint = iPEndPoint;
-        public IPEndPoint GetIPEndPoint() => IPEndPoint;
+        public IPEndPoint? GetIPEndPoint() => IPEndPoint;
 
         public byte[] GetSerializedBytes() => Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this));
         public void SetMessageBytes(byte[] data) => Data = data;

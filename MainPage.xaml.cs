@@ -88,9 +88,8 @@ namespace KSiS2
             }
         }
 
-        private async  void StartServer(string ipAddress, int port)
+        private async void StartServer(string ipAddress, int port)
         {
-            
             IPEndPoint ipPoint = new IPEndPoint(IPAddress.Parse(ipAddress), port);
             Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             socket.Bind(ipPoint);
@@ -100,31 +99,15 @@ namespace KSiS2
             {
                 var clientSocket = await socket.AcceptAsync();
                 AddToLog("К серверу подключился: " + clientSocket!.RemoteEndPoint!.ToString()!);
-                try
-                {
-                    Thread thread = new Thread(() => 
-                    {
-                        Process(clientSocket);
-               
-                    });
-                }
-                catch 
-                { 
-                    await DisplayAlert("Ошибка!", "Ошибка при получении данных", "ОK");
-                }
-                /*if (messages!.Last().Username == "Server" && messages!.Last().Message == "Error");
-                    await DisplayAlert("Ошибка", "Ошибка при получении данных", "ОK");
-                AddToLog(messages!.Last().Username + ": " + messages!.Last().Message);
-                *//*clientSocket.Shutdown(SocketShutdown.Both);
-                clientSocket.Close();*/
+                await Task.Run(() => Process(clientSocket));
             }
         }
 
         private void Process(Socket clientSocket)
         {
-            Thread receiveThread = new Thread(() => { ReceiveDataThread(clientSocket); });
-            Thread sendThread = new Thread(() => { SendDataThread(clientSocket); });
-
+            var receiveTask = Task.Run(() => ReceiveDataThread(clientSocket));
+            var sendTask = Task.Run(() => SendDataThread(clientSocket));
+            Task.WaitAll(receiveTask, sendTask);
         }
 
         private void SendDataThread(Socket clientSocket)
@@ -132,6 +115,9 @@ namespace KSiS2
             IPEndPoint? ipEndPoint = clientSocket.RemoteEndPoint as IPEndPoint; 
             while (true && clientSocket.Connected && ipEndPoint != null)
             {
+                AddToLog("send");
+
+                Console.WriteLine("send");
                 if (DataToSend.ContainsKey(ipEndPoint)) 
                 {
                     clientSocket.Send(DataToSend[ipEndPoint]);
@@ -142,6 +128,8 @@ namespace KSiS2
         {
             while (true && clientSocket.Connected)
             {
+                Console.WriteLine("receive");
+                AddToLog("receive");
                 int bytesRead = 0;
                 byte[] buffer = new byte[2048];
                 List<byte> data = new List<byte>();
@@ -156,9 +144,9 @@ namespace KSiS2
                     }
                     while (bytesRead > 0);
                     Message message = new Message(data.ToArray());
-                    ProcessMessage(message);
                     data.Clear();
-                    clientSocket.Send(new Message(new IPEndPoint(0, 0), "").GetSerializedBytes());
+                    var answer = ProcessMessage(message);
+                    clientSocket.Send(answer.GetSerializedBytes());
                 }
                 catch (Exception ex) 
                 {
@@ -173,10 +161,12 @@ namespace KSiS2
             switch (message.MessageType)
             {
                 case MessageType.Init:
-                    Users.Add(message.GetIPEndPoint(), message.GetText());
+                    Users.Add(message.GetIPEndPoint()!, message.GetText());
                     AddToLog($"К серверу подключился пользователь: {message.GetText()}");
                     break;
-                case MessageType.Text: 
+                case MessageType.Text:
+                    Messages.Add(message);
+                    AddToLog($"Получено сообщение от \"{Users[message.GetIPEndPoint()!]}\": {message.GetText()}");
                     break;
                 case MessageType.Photo: 
                     break;
