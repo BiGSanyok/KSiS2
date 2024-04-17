@@ -21,7 +21,7 @@ namespace KSiS2
         public MainPage()
         {
             InitializeComponent();
-            
+
 
         }
 
@@ -35,27 +35,24 @@ namespace KSiS2
         private void OnButtonFocused(object sender, EventArgs e)
         {
             (sender as Button)!.BackgroundColor = Color.Parse("Orange");
-            
+
         }
-        private void AddToLog(string message)
+        private async Task AddToLog(string message)
         {
-
-            Device.BeginInvokeOnMainThread(new Action(() =>
+            await this.Dispatcher.DispatchAsync(() =>
             {
-
                 Label label = new Label
                 {
                     Text = message,
                     FontSize = 12,
-
                 };
                 lock (locker)
                 {
-                    // Добавляем Label в AbsoluteLayout
                     LogCont.Children.Add(label);
                 }
-            }));
+            });
         }
+        
 
         
 
@@ -77,8 +74,9 @@ namespace KSiS2
                 {
                     try
                     {
-                        Thread thread = new (() => { StartServer(ipEntry.Text, port); });
-                        
+                        Thread thread = new(() => { StartServer(ipEntry.Text, port); });
+                        thread.Start();
+
                         AddToLog("Сервер запущен! IP: " + ipEntry.Text + "Port: " + port.ToString());
                     }
                     catch
@@ -95,7 +93,73 @@ namespace KSiS2
             }
         }
 
-        private async void StartServer(string ipAddress, int port)
+        private async Task StartServer(string ipAddress, int port)
+        {
+            IPEndPoint ipPoint = new IPEndPoint(IPAddress.Parse(ipAddress), port);
+            Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            socket.Bind(ipPoint);
+            socket.Listen(10);
+            await AddToLog("Сервер ожидает подключений...");
+            while (true)
+            {
+                var clientSocket = await socket.AcceptAsync();
+                await AddToLog("К серверу подключился: " + clientSocket!.RemoteEndPoint!.ToString()!);
+                _ = Process(clientSocket); // Запускаем обработку клиента в фоновом режиме
+            }
+        }
+
+        private async Task Process(Socket clientSocket)
+        {
+            var receiveTask = ReceiveDataThread(clientSocket);
+            var sendTask = SendDataThread(clientSocket);
+            await Task.WhenAny(receiveTask, sendTask); // Ждем завершения любой из задач
+        }
+
+        private async Task SendDataThread(Socket clientSocket)
+        {
+            IPEndPoint? ipEndPoint = clientSocket.RemoteEndPoint as IPEndPoint;
+            while (true && clientSocket.Connected && ipEndPoint != null)
+            {
+                if (DataToSend.ContainsKey(ipEndPoint))
+                {
+                    var sendBuffer = DataToSend[ipEndPoint];
+                    await clientSocket.SendAsync(new ArraySegment<byte>(sendBuffer), SocketFlags.None);
+                }
+            }
+        }
+
+        private async Task ReceiveDataThread(Socket clientSocket)
+        {
+            byte[] buffer = new byte[2048];
+            while (true && clientSocket.Connected)
+            {
+                var result = await clientSocket.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
+                await AddToLog($"{result} received data");
+                /*for (int i = 0; i < result;  i++)
+                {
+                    var arr = buffer.Take(result).ToArray();
+                    await AddToLog($"{arr[i]}");
+                }*/
+                if (result > 0)
+                {
+                    Message message = new Message(buffer.Take(result).ToArray());
+                    var answer = ProcessMessage(message).Result;
+                    if (answer.MessageType != MessageType.Error)
+                    {
+                        await clientSocket.SendAsync(new ArraySegment<byte>(answer.GetSerializedBytes()), SocketFlags.None);
+                        await AddToLog("Success" + answer.MessageType.ToString());
+                    }
+                    else
+                    {
+                        await AddToLog("Error" + answer.MessageType.ToString());
+                    }
+                }
+            }
+        }
+
+
+
+        /*private async void StartServer(string ipAddress, int port)
         {
             IPEndPoint ipPoint = new IPEndPoint(IPAddress.Parse(ipAddress), port);
             Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -106,16 +170,16 @@ namespace KSiS2
             {
                 var clientSocket = await socket.AcceptAsync();
                 AddToLog("К серверу подключился: " + clientSocket!.RemoteEndPoint!.ToString()!);
-                /*Thread receive = new Thread(() => ReceiveDataThread(clientSocket));
+                *//*Thread receive = new Thread(() => ReceiveDataThread(clientSocket));
                 Thread send = new Thread(() => SendDataThread(clientSocket));
                 //Task.WaitAll(receiveTask, sendTask);
                 receive.Start();
-                send.Start();*/
+                send.Start();*//*
                 Thread receive = new Thread(() => { ReceiveDataThread(clientSocket); });
                 receive.Start();
                 Thread send = new Thread(() => {  SendDataThread(clientSocket); }); 
                 send.Start();
-                SendDataThread(clientSocket);
+                //SendDataThread(clientSocket);
                 
             }
         }
@@ -173,27 +237,30 @@ namespace KSiS2
                     Console.WriteLine(ex.Message);
                 }
             }
-        }
+        }*/
 
 
-        private Message ProcessMessage(Message message)
+        private async Task<Message> ProcessMessage(Message message)
         {
             Message answer = new Message("Ошибка обработки ");
+            answer.MessageType = MessageType.Error;
             switch (message.MessageType)
             {
                 case MessageType.Init:
                     Users.Add(message.GetIPEndPoint()!, message.GetText());
-                    AddToLog($"К серверу подключился пользователь: {message.GetText()}");
+                    answer.MessageType = MessageType.Text;
+                    await AddToLog($"К серверу подключился пользователь: {message.GetText()}");
                     break;
                 case MessageType.Text:
                     Messages.Add(message);
-                    AddToLog($"Получено сообщение от \"{Users[message.GetIPEndPoint()!]}\": {message.GetText()}");
+                    answer.MessageType = MessageType.Text;
+                    await AddToLog($"Получено сообщение от \"{Users[message.GetIPEndPoint()!]}\": {message.GetText()}");
                     break;
-                case MessageType.Photo: 
+                case MessageType.Photo:
                     break;
                 case MessageType.File:
                     break;
-                case MessageType.Command: 
+                case MessageType.Command:
                     break;
             }
             return answer;

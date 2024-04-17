@@ -14,7 +14,8 @@ namespace KSiS2
         Text, 
         Photo,
         File,
-        Command
+        Command,
+        Error
     }
     public class Message
     {
