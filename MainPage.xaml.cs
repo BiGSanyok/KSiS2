@@ -10,6 +10,7 @@ using Microsoft.Maui.Layouts;
 using System.Collections.Generic;
 using System.Configuration;
 using Newtonsoft.Json;
+using System.Collections.Concurrent;
 
 
 namespace KSiS2
@@ -38,17 +39,22 @@ namespace KSiS2
         }
         private void AddToLog(string message)
         {
-            Label label = new Label
-            {
-                Text = message,
-                FontSize = 12,
 
-            };
-            lock (locker)
+            Device.BeginInvokeOnMainThread(new Action(() =>
             {
-                // Добавляем Label в AbsoluteLayout
-                LogCont.Children.Add(label);
-            }
+
+                Label label = new Label
+                {
+                    Text = message,
+                    FontSize = 12,
+
+                };
+                lock (locker)
+                {
+                    // Добавляем Label в AbsoluteLayout
+                    LogCont.Children.Add(label);
+                }
+            }));
         }
 
         
@@ -56,9 +62,9 @@ namespace KSiS2
         
 
 
-        private static List<Message> Messages = new List<Message>();
-        private Dictionary<IPEndPoint, string> Users = new Dictionary<IPEndPoint, string>();
-        private Dictionary<IPEndPoint, byte[]> DataToSend = new Dictionary<IPEndPoint, byte[]>();
+        private static List<Message> Messages = [];
+        private Dictionary<IPEndPoint, string> Users = new();
+        private ConcurrentDictionary<IPEndPoint, byte[]> DataToSend = new();
 
         //настройка сервера
         private async void OnStartClicked(object sender, EventArgs e)
@@ -71,7 +77,8 @@ namespace KSiS2
                 {
                     try
                     {
-                        StartServer(ipEntry.Text, port);
+                        Thread thread = new (() => { StartServer(ipEntry.Text, port); });
+                        
                         AddToLog("Сервер запущен! IP: " + ipEntry.Text + "Port: " + port.ToString());
                     }
                     catch
@@ -99,32 +106,45 @@ namespace KSiS2
             {
                 var clientSocket = await socket.AcceptAsync();
                 AddToLog("К серверу подключился: " + clientSocket!.RemoteEndPoint!.ToString()!);
-                await Task.Run(() => Process(clientSocket));
+                /*Thread receive = new Thread(() => ReceiveDataThread(clientSocket));
+                Thread send = new Thread(() => SendDataThread(clientSocket));
+                //Task.WaitAll(receiveTask, sendTask);
+                receive.Start();
+                send.Start();*/
+                Thread receive = new Thread(() => { ReceiveDataThread(clientSocket); });
+                receive.Start();
+                Thread send = new Thread(() => {  SendDataThread(clientSocket); }); 
+                send.Start();
+                SendDataThread(clientSocket);
+                
             }
         }
 
-        private void Process(Socket clientSocket)
+        private async void Process(Socket clientSocket)
         {
-            var receiveTask = Task.Run(() => ReceiveDataThread(clientSocket));
-            var sendTask = Task.Run(() => SendDataThread(clientSocket));
-            Task.WaitAll(receiveTask, sendTask);
+            Thread receive = new Thread(() => ReceiveDataThread(clientSocket));
+            Thread send = new Thread(() => SendDataThread(clientSocket));
+            //Task.WaitAll(receiveTask, sendTask);
+            receive.Start();
+            send.Start();
         }
 
-        private void SendDataThread(Socket clientSocket)
+        private async void SendDataThread(Socket clientSocket)
         {
-            IPEndPoint? ipEndPoint = clientSocket.RemoteEndPoint as IPEndPoint; 
+            IPEndPoint? ipEndPoint = clientSocket.RemoteEndPoint as IPEndPoint;
             while (true && clientSocket.Connected && ipEndPoint != null)
             {
                 AddToLog("send");
 
                 Console.WriteLine("send");
-                if (DataToSend.ContainsKey(ipEndPoint)) 
+                if (DataToSend.ContainsKey(ipEndPoint))
                 {
-                    clientSocket.Send(DataToSend[ipEndPoint]);
+                    await clientSocket.SendAsync(DataToSend[ipEndPoint], SocketFlags.None);
                 }
             }
         }
-        private void ReceiveDataThread(Socket clientSocket)
+
+        private async void ReceiveDataThread(Socket clientSocket)
         {
             while (true && clientSocket.Connected)
             {
@@ -138,7 +158,7 @@ namespace KSiS2
                     do
                     {
                         bytesRead = 0;
-                        bytesRead = clientSocket!.Receive(buffer);
+                        bytesRead = await clientSocket!.ReceiveAsync(buffer, SocketFlags.None);
                         foreach (byte b in buffer)
                             data.Add(b);
                     }
@@ -146,14 +166,15 @@ namespace KSiS2
                     Message message = new Message(data.ToArray());
                     data.Clear();
                     var answer = ProcessMessage(message);
-                    clientSocket.Send(answer.GetSerializedBytes());
+                    await clientSocket.SendAsync(answer.GetSerializedBytes(), SocketFlags.None);
                 }
-                catch (Exception ex) 
+                catch (Exception ex)
                 {
-                    Console.WriteLine(ex.Message); 
+                    Console.WriteLine(ex.Message);
                 }
             }
         }
+
 
         private Message ProcessMessage(Message message)
         {
