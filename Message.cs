@@ -11,7 +11,7 @@ namespace KSiS2
     public enum MessageType
     {
         Init,
-        Text, 
+        Text,
         Photo,
         File,
         Command,
@@ -20,42 +20,67 @@ namespace KSiS2
     public class Message
     {
         private IPEndPoint? IPEndPoint { get; set; }
-        private byte[] Data { get; set; }
+        public byte[] Data { get; set; }
         public MessageType MessageType { get; set; }
+
+        public string IP = "";
 
         public Message(byte[] serializedData)
         {
-            string buffer = Encoding.UTF8.GetString(serializedData);
-            Message? message = JsonConvert.DeserializeObject<Message>(buffer);
-            if (message != null)
+            try
             {
-                this.MessageType = message.MessageType;
-                this.Data = message.Data;
-                this.IPEndPoint = message.IPEndPoint;
+                if (serializedData == null)
+                    throw new ArgumentNullException(nameof(serializedData));
+                string buffer = Encoding.UTF8.GetString(serializedData!);
+                Message? message = JsonConvert.DeserializeObject<Message>(buffer);
+                if (message != null)
+                {
+                    MessageType = message.MessageType;
+                    Data = message.GetData();
+                    IPEndPoint = IPEndPoint.Parse(message.IP);
+                    IP = message.IP;
+                }
+                else
+                {
+                    throw new Exception("message null");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                throw new Exception("Invalid message");
+                throw new Exception("Message construct error " + ex.Message);
             }
         }
         public Message(IPEndPoint iPEndPoint, byte[] data)
         {
             Data = data;
-            IPEndPoint = iPEndPoint;
+            SetIPEndPoint(iPEndPoint);
         }
+        public Message() { }
 
         public Message(string message) => Data = Encoding.UTF8.GetBytes(message);
-        public Message(IPEndPoint iPEndPoint, string message) : this(message) => IPEndPoint = iPEndPoint;
+        public Message(IPEndPoint iPEndPoint, string message) : this(message) => SetIPEndPoint(iPEndPoint);
+
+        public byte[] GetData() => Data;
 
         public void SetText(string text) => Data = Encoding.UTF8.GetBytes(text);
-        public string GetText() => Encoding.UTF8.GetString(Data);
+        public string GetText()
+        {
+            if (Data != null)
+                return Encoding.UTF8.GetString(Data);
+            else
+                return string.Empty;
+        }
 
-        public void SetIPEndPoint(IPEndPoint iPEndPoint) => IPEndPoint = iPEndPoint;
+        public void SetIPEndPoint(IPEndPoint iPEndPoint)
+        {
+            IPEndPoint = iPEndPoint;
+            IP = IPEndPoint.ToString();
+        }
         public IPEndPoint? GetIPEndPoint() => IPEndPoint;
 
         public byte[] GetSerializedBytes() => Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this));
         public void SetMessageBytes(byte[] data) => Data = data;
         public byte[] GetMessageBytes() => Data;
-        
+
     }
 }

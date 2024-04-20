@@ -21,7 +21,8 @@ namespace KSiS2
         public MainPage()
         {
             InitializeComponent();
-
+            ipEntry.Text = "127.0.0.1";
+            portEntry.Text = "1";
 
         }
 
@@ -77,7 +78,7 @@ namespace KSiS2
                         Thread thread = new(() => { StartServer(ipEntry.Text, port); });
                         thread.Start();
 
-                        AddToLog("Сервер запущен! IP: " + ipEntry.Text + "Port: " + port.ToString());
+                        await AddToLog("Сервер запущен! IP: " + ipEntry.Text + "Port: " + port.ToString());
                     }
                     catch
                     {
@@ -135,115 +136,41 @@ namespace KSiS2
             {
                 var result = await clientSocket.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
                 await AddToLog($"{result} received data");
-                /*for (int i = 0; i < result;  i++)
-                {
-                    var arr = buffer.Take(result).ToArray();
-                    await AddToLog($"{arr[i]}");
-                }*/
                 if (result > 0)
                 {
-                    Message message = new Message(buffer.Take(result).ToArray());
-                    var answer = ProcessMessage(message).Result;
+                    Message message = new();
+                    var answer = message;
+                    try
+                    {
+                        byte[] data = buffer.Take(result).ToArray();
+                        message = new Message(data);
+                        await AddToLog($"Text {message.GetText()} Type {message.MessageType} IP {message.GetIPEndPoint()}  ");
+                        if (message != null)
+                            answer = await ProcessMessage(message);
+                    }
+                    catch (Exception ex) 
+                    { 
+                        await AddToLog($"{ex.Message}");
+                    }
+                    await AddToLog("Au");
                     if (answer.MessageType != MessageType.Error)
                     {
                         await clientSocket.SendAsync(new ArraySegment<byte>(answer.GetSerializedBytes()), SocketFlags.None);
-                        await AddToLog("Success" + answer.MessageType.ToString());
+                        await AddToLog("Success " + ((int)answer.MessageType).ToString());
                     }
                     else
                     {
-                        await AddToLog("Error" + answer.MessageType.ToString());
+                        await AddToLog("Error " + ((int)answer.MessageType).ToString());
                     }
                 }
             }
         }
-
-
-
-        /*private async void StartServer(string ipAddress, int port)
-        {
-            IPEndPoint ipPoint = new IPEndPoint(IPAddress.Parse(ipAddress), port);
-            Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            socket.Bind(ipPoint);
-            socket.Listen(10);
-            AddToLog("Сервер ожидает подключений...");
-            while (true)
-            {
-                var clientSocket = await socket.AcceptAsync();
-                AddToLog("К серверу подключился: " + clientSocket!.RemoteEndPoint!.ToString()!);
-                *//*Thread receive = new Thread(() => ReceiveDataThread(clientSocket));
-                Thread send = new Thread(() => SendDataThread(clientSocket));
-                //Task.WaitAll(receiveTask, sendTask);
-                receive.Start();
-                send.Start();*//*
-                Thread receive = new Thread(() => { ReceiveDataThread(clientSocket); });
-                receive.Start();
-                Thread send = new Thread(() => {  SendDataThread(clientSocket); }); 
-                send.Start();
-                //SendDataThread(clientSocket);
-                
-            }
-        }
-
-        private async void Process(Socket clientSocket)
-        {
-            Thread receive = new Thread(() => ReceiveDataThread(clientSocket));
-            Thread send = new Thread(() => SendDataThread(clientSocket));
-            //Task.WaitAll(receiveTask, sendTask);
-            receive.Start();
-            send.Start();
-        }
-
-        private async void SendDataThread(Socket clientSocket)
-        {
-            IPEndPoint? ipEndPoint = clientSocket.RemoteEndPoint as IPEndPoint;
-            while (true && clientSocket.Connected && ipEndPoint != null)
-            {
-                AddToLog("send");
-
-                Console.WriteLine("send");
-                if (DataToSend.ContainsKey(ipEndPoint))
-                {
-                    await clientSocket.SendAsync(DataToSend[ipEndPoint], SocketFlags.None);
-                }
-            }
-        }
-
-        private async void ReceiveDataThread(Socket clientSocket)
-        {
-            while (true && clientSocket.Connected)
-            {
-                Console.WriteLine("receive");
-                AddToLog("receive");
-                int bytesRead = 0;
-                byte[] buffer = new byte[2048];
-                List<byte> data = new List<byte>();
-                try
-                {
-                    do
-                    {
-                        bytesRead = 0;
-                        bytesRead = await clientSocket!.ReceiveAsync(buffer, SocketFlags.None);
-                        foreach (byte b in buffer)
-                            data.Add(b);
-                    }
-                    while (bytesRead > 0);
-                    Message message = new Message(data.ToArray());
-                    data.Clear();
-                    var answer = ProcessMessage(message);
-                    await clientSocket.SendAsync(answer.GetSerializedBytes(), SocketFlags.None);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-            }
-        }*/
-
 
         private async Task<Message> ProcessMessage(Message message)
         {
-            Message answer = new Message("Ошибка обработки ");
+            Message answer = new("Ошибка обработки ");
             answer.MessageType = MessageType.Error;
+            await AddToLog("process");
             switch (message.MessageType)
             {
                 case MessageType.Init:
@@ -263,6 +190,7 @@ namespace KSiS2
                 case MessageType.Command:
                     break;
             }
+            await AddToLog("ProcessEnd");
             return answer;
         }
 
